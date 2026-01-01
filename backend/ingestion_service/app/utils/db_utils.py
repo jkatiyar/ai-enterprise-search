@@ -1,5 +1,6 @@
 import psycopg
-from core.db_config import DB_CONFIG
+from app.core.db_config import DB_CONFIG
+
 
 def get_db_connection():
     return psycopg.connect(
@@ -9,6 +10,7 @@ def get_db_connection():
         user=DB_CONFIG["user"],
         password=DB_CONFIG["password"],
     )
+
 
 def insert_document_metadata(filename, file_path, text_length, num_chunks):
     conn = get_db_connection()

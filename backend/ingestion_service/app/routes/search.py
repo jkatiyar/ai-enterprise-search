@@ -1,15 +1,12 @@
-from fastapi import APIRouter
-from services.search_service import semantic_search
+from fastapi import APIRouter, Query
+from services.search_service import semantic_search_with_context
 
-router = APIRouter(
-    prefix="/search",
-    tags=["Semantic Search"]
-)
+router = APIRouter(prefix="/search", tags=["Search"])
 
-@router.post("/")
-def search_endpoint(query: str, limit: int = 5):
-    results = semantic_search(query, limit)
-    return {
-        "query": query,
-        "results": results
-    }
+
+@router.post("/rag-preview")
+def rag_preview(
+    query: str = Query(...),
+    limit: int = Query(5)
+):
+    return semantic_search_with_context(query=query, limit=limit)

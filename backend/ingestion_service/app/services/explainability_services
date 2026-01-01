@@ -1,0 +1,79 @@
+from typing import Dict, List
+
+
+def build_explanation(
+    question: str,
+    final_answer: str,
+    edue_result: Dict,
+    rag_result: Dict,
+    confidence_block: Dict
+) -> Dict:
+    """
+    Builds a human-readable, evidence-backed explanation
+    for why the system produced this answer.
+    """
+
+    edue_pages: List[int] = edue_result["result"].get("pages", [])
+    edue_conf = edue_result["result"].get("confidence", 0)
+
+    rag_used = rag_result is not None
+    rag_sources = rag_result.get("sources", []) if rag_used else []
+
+    explanation_steps = []
+
+    # Step 1: EDUE reasoning
+    if edue_conf > 0:
+        explanation_steps.append(
+            f"EDUE identified structurally relevant content for the question "
+            f"with confidence {round(edue_conf, 2)}."
+        )
+
+    if edue_pages:
+        explanation_steps.append(
+            f"Relevant information was found on document pages: "
+            f"{sorted(set(edue_pages))}."
+        )
+    else:
+        explanation_steps.append(
+            "No strong structural section match was found in the document."
+        )
+
+    # Step 2: RAG involvement
+    if rag_used:
+        explanation_steps.append(
+            "RAG was executed to validate or supplement the EDUE result."
+        )
+
+        if rag_sources:
+            explanation_steps.append(
+                f"RAG retrieved supporting context from "
+                f"{len(rag_sources)} semantic chunks."
+            )
+        else:
+            explanation_steps.append(
+                "RAG did not find strong semantic matches beyond EDUE."
+            )
+
+    # Step 3: Final decision logic
+    explanation_steps.append(
+        f"The final answer was selected based on the '{confidence_block['band']}' "
+        f"confidence level derived from structural evidence and page support."
+    )
+
+    # Step 4: Confidence explanation
+    explanation_steps.append(
+        f"Confidence was calibrated to {confidence_block['calibrated_score']} "
+        f"because the answer is supported by "
+        f"{confidence_block['page_support']} distinct document pages."
+    )
+
+    return {
+        "question": question,
+        "final_answer": final_answer,
+        "confidence_band": confidence_block["band"],
+        "explanation_steps": explanation_steps,
+        "evidence": {
+            "edue_pages": sorted(set(edue_pages)),
+            "rag_sources": rag_sources,
+        }
+    }

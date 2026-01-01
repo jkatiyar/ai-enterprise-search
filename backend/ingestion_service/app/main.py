@@ -1,15 +1,13 @@
 from fastapi import FastAPI
-from routes.upload import router as upload_router
-from routes.search import router as search_router
 
-app = FastAPI(
-    title="Ingestion Service",
-    version="1.0.0",
-    description="Handles file ingestion for AI Enterprise Search"
-)
+from app.routes.upload import router as upload_router
+from app.routes.edue_query import router as edue_query_router
 
-# Add upload routes
-app.include_router(upload_router, prefix="/upload")
+app = FastAPI(title="Enterprise Document Understanding Engine")
 
-# Add search routes
-app.include_router(search_router)
+app.include_router(upload_router)
+app.include_router(edue_query_router)
+
+@app.get("/")
+def health():
+    return {"status": "EDUE service running"}
