@@ -1,146 +1,193 @@
-from typing import Dict, List
 import re
-from difflib import SequenceMatcher
+from typing import Dict, List, Tuple
 
 
-# --------------------------------------------------
-# Utility functions
-# --------------------------------------------------
+# ---------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------
 
-def _normalize(text: str) -> str:
-    text = text.lower()
-    text = re.sub(r"[^a-z0-9\s]", " ", text)
-    text = re.sub(r"\s+", " ", text)
+MIN_SENTENCE_TOKENS = 8
+MAX_SENTENCES = 3
+
+QUESTION_PREFIXES = (
+    "what is",
+    "how are",
+    "how is",
+    "explain",
+    "define",
+)
+
+NOISE_PATTERNS = [
+    r"learning objective",
+    r"https?://",
+    r"www\.",
+]
+
+
+# ---------------------------------------------------------
+# Utility cleaners
+# ---------------------------------------------------------
+
+def _repair_pdf_artifacts(text: str) -> str:
+    """
+    Fix common PDF extraction issues.
+    """
+    text = re.sub(r"-\s+", "", text)          # fix hyphenation
+    text = re.sub(r"\s+", " ", text)          # normalize spaces
     return text.strip()
 
 
-def _similarity(a: str, b: str) -> float:
-    return SequenceMatcher(None, a, b).ratio()
+def _is_noise(sentence: str) -> bool:
+    s = sentence.lower().strip()
+
+    if len(s.split()) < MIN_SENTENCE_TOKENS:
+        return True
+
+    for p in NOISE_PATTERNS:
+        if re.search(p, s):
+            return True
+
+    if s.startswith(("what is", "explain", "define")):
+        return True
+
+    return False
 
 
-def _question_keywords(question: str) -> List[str]:
-    stopwords = {
-        "what", "is", "are", "the", "a", "an", "of", "to",
-        "explain", "describe", "defined", "definition",
-        "in", "this", "document"
-    }
-    return [
-        w for w in _normalize(question).split()
-        if w not in stopwords and len(w) > 2
-    ]
+def _split_sentences(text: str) -> List[str]:
+    text = _repair_pdf_artifacts(text)
+    return re.split(r"(?<=[.!?])\s+", text)
 
 
-# --------------------------------------------------
-# EDUE core query
-# --------------------------------------------------
+# ---------------------------------------------------------
+# Declarative normalization
+# ---------------------------------------------------------
+
+def _normalize_to_declarative(question: str, answer: str) -> str:
+    q = question.lower().strip()
+
+    if q.startswith("what is"):
+        subject = question[7:].strip().rstrip("?")
+        return f"{subject} is {answer}"
+
+    if q.startswith("define"):
+        subject = question[6:].strip().rstrip("?")
+        return f"{subject} is {answer}"
+
+    if q.startswith("how are") or q.startswith("how is"):
+        subject = question.split(" ", 2)[-1].rstrip("?")
+        return f"{subject} are connected as follows: {answer}"
+
+    return answer
+
+
+# ---------------------------------------------------------
+# Core EDUE Query Engine
+# ---------------------------------------------------------
 
 def query_edue(document: Dict, question: str) -> Dict:
     """
     Enterprise Document Understanding Engine (EDUE)
 
-    Section + paragraph based deterministic answering.
+    - Structure-first
+    - Deterministic
+    - No embeddings
+    - No LLMs
     """
 
-    if "sections" not in document:
-        return {
-            "engine": "edue",
-            "question": question,
-            "result": {
-                "answer": "Information is not available",
-                "confidence": 0.05,
-                "pages": [],
-            },
-        }
+    if not document or "sections" not in document:
+        return _empty_response(question)
 
-    q_norm = _normalize(question)
-    q_keywords = _question_keywords(question)
+    candidate_sentences: List[Tuple[str, int]] = []
 
-    best_section = None
-    best_score = 0.0
+    question_terms = set(
+        re.sub(r"[^\w\s]", "", question.lower()).split()
+    )
 
-    # --------------------------------------------------
-    # 1️⃣ Section-level matching
-    # --------------------------------------------------
+    # -----------------------------------------------------
+    # Section scanning
+    # -----------------------------------------------------
 
-    for section in document.get("sections", []):
-        title = section.get("title", "")
-        title_norm = _normalize(title)
+    for section in document["sections"]:
+        header = section.get("header", "")
+        paragraphs = section.get("paragraphs", [])
+        page = section.get("page")
 
-        # Title similarity
-        score = _similarity(q_norm, title_norm)
+        combined_text = " ".join([header] + paragraphs)
+        combined_text = _repair_pdf_artifacts(combined_text)
 
-        # Keyword overlap boost
-        overlap = sum(1 for k in q_keywords if k in title_norm)
-        score += overlap * 0.15
+        sentences = _split_sentences(combined_text)
 
-        if score > best_score:
-            best_score = score
-            best_section = section
+        for s in sentences:
+            s_clean = s.strip()
 
-    # --------------------------------------------------
-    # 2️⃣ Paragraph-level fallback
-    # --------------------------------------------------
+            if _is_noise(s_clean):
+                continue
 
-    best_paragraph = None
-    paragraph_score = 0.0
+            score = sum(
+                1 for t in question_terms
+                if t in s_clean.lower()
+            )
 
-    if best_score < 0.35:
-        for section in document.get("sections", []):
-            for para in section.get("paragraphs", []):
-                para_norm = _normalize(para)
-                score = _similarity(q_norm, para_norm)
+            if score > 0:
+                candidate_sentences.append((s_clean, page))
 
-                overlap = sum(1 for k in q_keywords if k in para_norm)
-                score += overlap * 0.1
+    # -----------------------------------------------------
+    # No signal case
+    # -----------------------------------------------------
 
-                if score > paragraph_score:
-                    paragraph_score = score
-                    best_paragraph = para
-                    best_section = section
+    if not candidate_sentences:
+        return _empty_response(question)
 
-        best_score = paragraph_score
+    # -----------------------------------------------------
+    # Rank & select
+    # -----------------------------------------------------
 
-    # --------------------------------------------------
-    # 3️⃣ No reliable match
-    # --------------------------------------------------
+    candidate_sentences.sort(
+        key=lambda x: len(x[0]),
+        reverse=True
+    )
 
-    if not best_section or best_score < 0.25:
-        return {
-            "engine": "edue",
-            "question": question,
-            "result": {
-                "answer": "Information is not available",
-                "confidence": 0.05,
-                "pages": [],
-            },
-        }
+    selected = candidate_sentences[:MAX_SENTENCES]
 
-    # --------------------------------------------------
-    # 4️⃣ Build answer
-    # --------------------------------------------------
+    answer_text = " ".join(s for s, _ in selected)
+    pages = sorted(
+        {p for _, p in selected if p is not None}
+    )
 
-    paragraphs = best_section.get("paragraphs", [])
-    pages = best_section.get("pages", [])
+    answer_text = _normalize_to_declarative(
+        question, answer_text
+    )
 
-    if best_paragraph:
-        answer_text = best_paragraph.strip()
-    else:
-        answer_text = " ".join(p.strip() for p in paragraphs)
+    confidence = min(
+        0.9,
+        0.4 + 0.2 * len(selected)
+    )
 
-    answer_text = re.sub(r"\s+", " ", answer_text).strip()
-
-    # --------------------------------------------------
-    # 5️⃣ Confidence calibration
-    # --------------------------------------------------
-
-    confidence = min(0.95, round(0.4 + best_score, 2))
+    if not pages:
+        confidence = min(confidence, 0.6)
 
     return {
         "engine": "edue",
         "question": question,
         "result": {
-            "answer": answer_text,
-            "confidence": confidence,
-            "pages": sorted(set(pages)),
+            "answer": answer_text.strip(),
+            "confidence": round(confidence, 2),
+            "pages": pages,
+        },
+    }
+
+
+# ---------------------------------------------------------
+# Empty response
+# ---------------------------------------------------------
+
+def _empty_response(question: str) -> Dict:
+    return {
+        "engine": "edue",
+        "question": question,
+        "result": {
+            "answer": "Information is not available.",
+            "confidence": 0.05,
+            "pages": [],
         },
     }

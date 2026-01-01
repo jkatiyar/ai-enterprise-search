@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Optional
+
 from qdrant_client import QdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 
@@ -11,7 +12,7 @@ COLLECTION_NAME = "documents"
 
 
 # -------------------------
-# Client factory (IMPORTANT)
+# Client factory (SINGLE SOURCE)
 # -------------------------
 def get_qdrant_client() -> QdrantClient:
     """
@@ -25,7 +26,7 @@ def get_qdrant_client() -> QdrantClient:
 
 
 # -------------------------
-# Semantic search
+# Core semantic search (STABLE)
 # -------------------------
 def search_vectors(
     query_vector: List[float],
@@ -51,7 +52,6 @@ def search_vectors(
             ]
         )
 
-    # Qdrant 1.8.x compatible API
     hits = client.search(
         collection_name=COLLECTION_NAME,
         query_vector=query_vector,
@@ -70,3 +70,27 @@ def search_vectors(
         })
 
     return results
+
+
+# -------------------------
+# Compatibility alias (DO NOT REMOVE)
+# -------------------------
+def search_qdrant(
+    query_vector: List[float],
+    limit: int = 5,
+    metadata_filter: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Backward-compatible alias for RAG layer.
+
+    IMPORTANT:
+    - Do NOT add logic here
+    - Do NOT rename search_vectors
+    - This exists only to prevent interface breakage
+    """
+
+    return search_vectors(
+        query_vector=query_vector,
+        limit=limit,
+        metadata_filter=metadata_filter,
+    )

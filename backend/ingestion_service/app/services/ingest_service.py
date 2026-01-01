@@ -1,9 +1,10 @@
 import uuid
-from typing import Dict, List
+from typing import Dict
 
 from app.utils.file_utils import save_temp_file
 from app.utils.pdf_parser import extract_structured_sections_from_pdf
 from app.utils.db_utils import insert_document_metadata
+from app.utils.file_hash_utils import generate_file_hash
 
 
 # -------------------------------------------------------------------
@@ -21,18 +22,33 @@ def process_file(file):
     """
     Generic PDF ingestion for EDUE.
 
-    - Supports ANY PDF (courses, books, research papers)
-    - Builds semantic sections (header + paragraphs)
+    - Stable document_id based on file content
+    - Supports ANY PDF
+    - No loss of existing functionality
     """
 
     if not file.filename.lower().endswith(".pdf"):
         raise ValueError("Only PDF files are supported")
 
     file_path = save_temp_file(file)
-    document_id = str(uuid.uuid4())
+
+    # 🔑 STABLE DOCUMENT ID
+    document_id = generate_file_hash(file_path)
 
     # ---------------------------------------------------------------
-    # Extract GENERIC semantic structure (not courses!)
+    # If document already exists, short-circuit
+    # ---------------------------------------------------------------
+
+    if document_id in EDUE_DOCUMENT_STORE:
+        return {
+            "document_id": document_id,
+            "filename": file.filename,
+            "saved_as": file_path,
+            "message": "Document already ingested (reused existing document_id)",
+        }
+
+    # ---------------------------------------------------------------
+    # Extract semantic structure
     # ---------------------------------------------------------------
 
     sections = extract_structured_sections_from_pdf(file_path)
@@ -47,7 +63,7 @@ def process_file(file):
     EDUE_DOCUMENT_STORE[document_id] = {
         "document_id": document_id,
         "filename": file.filename,
-        "sections": sections,   # 🔑 KEY CHANGE
+        "sections": sections,
     }
 
     # ---------------------------------------------------------------
@@ -72,7 +88,7 @@ def process_file(file):
         "filename": file.filename,
         "saved_as": file_path,
         "sections_extracted": len(sections),
-        "message": "File uploaded, processed, and EDUE document created successfully",
+        "message": "File uploaded and processed successfully",
     }
 
 

@@ -1,0 +1,453 @@
+================================================================================
+FILE: _init_.py
+LINES: 1
+
+================================================================================
+FILE: core\_init_.py
+LINES: 1
+
+================================================================================
+FILE: core\db_config.py
+LINES: 8
+
+================================================================================
+FILE: core\edue_builder.py
+LINES: 55
+
+IMPORTS:
+  - app.models.document.ContentLine
+  - app.models.document.Document
+  - app.models.document.Section
+  - pdfplumber
+  - re
+
+FUNCTIONS:
+  - build_edue_document
+
+================================================================================
+FILE: core\edue_query.py
+LINES: 194
+
+IMPORTS:
+  - re
+  - typing.Dict
+  - typing.List
+  - typing.Tuple
+
+FUNCTIONS:
+  - _empty_response
+  - _is_noise
+  - _normalize_to_declarative
+  - _repair_pdf_artifacts
+  - _split_sentences
+  - query_edue
+
+================================================================================
+FILE: core\edue_store.py
+LINES: 18
+
+IMPORTS:
+  - app.models.document.Document
+  - json
+  - pathlib.Path
+  - uuid
+
+FUNCTIONS:
+  - save_edue_document
+
+================================================================================
+FILE: core\qdrant_config.py
+LINES: 5
+
+================================================================================
+FILE: create_qdrant_collection.py
+LINES: 22
+
+IMPORTS:
+  - qdrant_client.QdrantClient
+  - qdrant_client.models.Distance
+  - qdrant_client.models.VectorParams
+
+================================================================================
+FILE: insert_sample_vectors.py
+LINES: 54
+
+IMPORTS:
+  - qdrant_client.QdrantClient
+  - qdrant_client.models.PointStruct
+  - utils.embedding_utils.EmbeddingService
+
+================================================================================
+FILE: main.py
+LINES: 14
+
+IMPORTS:
+  - app.routes.edue_query.router
+  - app.routes.upload.router
+  - fastapi.FastAPI
+
+FUNCTIONS:
+  - health
+
+================================================================================
+FILE: models\_init_.py
+LINES: 1
+
+================================================================================
+FILE: models\document.py
+LINES: 34
+
+IMPORTS:
+  - dataclasses.dataclass
+  - typing.List
+
+CLASSES:
+  - Document
+  - Line
+  - Section
+
+================================================================================
+FILE: reset_qdrant.py
+LINES: 12
+
+IMPORTS:
+  - qdrant_client.QdrantClient
+
+================================================================================
+FILE: routes\_init_.py
+LINES: 1
+
+================================================================================
+FILE: routes\edue_query.py
+LINES: 71
+
+IMPORTS:
+  - app.core.edue_query.query_edue
+  - app.services.ingest_service.get_document_by_id
+  - app.services.query_orchestrator.run_hybrid_query
+  - fastapi.APIRouter
+  - fastapi.HTTPException
+  - pydantic.BaseModel
+
+CLASSES:
+  - EDUERequest
+
+FUNCTIONS:
+  - edue_query_endpoint
+  - hybrid_query_endpoint
+
+================================================================================
+FILE: routes\rag.py
+LINES: 21
+
+IMPORTS:
+  - fastapi.APIRouter
+  - fastapi.Query
+  - services.search_service.semantic_search_with_context
+
+FUNCTIONS:
+  - rag_preview
+
+================================================================================
+FILE: routes\search.py
+LINES: 13
+
+IMPORTS:
+  - fastapi.APIRouter
+  - fastapi.Query
+  - services.search_service.semantic_search_with_context
+
+FUNCTIONS:
+  - rag_preview
+
+================================================================================
+FILE: routes\upload.py
+LINES: 27
+
+IMPORTS:
+  - app.services.ingest_service.process_file
+  - fastapi.APIRouter
+  - fastapi.File
+  - fastapi.HTTPException
+  - fastapi.UploadFile
+
+FUNCTIONS:
+  - upload_document
+
+================================================================================
+FILE: scripts\codebase_scan.py
+LINES: 102
+
+IMPORTS:
+  - ast
+  - os
+  - pathlib.Path
+
+FUNCTIONS:
+  - analyze_python_file
+  - main
+  - scan_codebase
+
+================================================================================
+FILE: scripts\create_collection.py
+LINES: 23
+
+IMPORTS:
+  - qdrant_client.QdrantClient
+  - qdrant_client.models.Distance
+  - qdrant_client.models.VectorParams
+
+================================================================================
+FILE: search_vectors.py
+LINES: 32
+
+IMPORTS:
+  - qdrant_client.QdrantClient
+  - utils.embedding_utils.EmbeddingService
+
+================================================================================
+FILE: services\_init_.py
+LINES: 1
+
+================================================================================
+FILE: services\answer_merger.py
+LINES: 37
+
+IMPORTS:
+  - typing.Dict
+
+FUNCTIONS:
+  - merge_edue_and_rag
+
+================================================================================
+FILE: services\confidence_calibrator.py
+LINES: 57
+
+IMPORTS:
+  - typing.Dict
+
+FUNCTIONS:
+  - calibrate_confidence
+
+================================================================================
+FILE: services\ingest_service.py
+LINES: 85
+
+IMPORTS:
+  - app.utils.db_utils.insert_document_metadata
+  - app.utils.file_utils.save_temp_file
+  - app.utils.pdf_parser.extract_structured_sections_from_pdf
+  - typing.Dict
+  - typing.List
+  - uuid
+
+FUNCTIONS:
+  - get_document_by_id
+  - process_file
+
+================================================================================
+FILE: services\query_orchestrator.py
+LINES: 113
+
+IMPORTS:
+  - app.core.edue_query.query_edue
+  - app.services.search_service.semantic_search_with_context
+  - app.utils.edue_rag_bridge.build_edue_context
+  - typing.Dict
+
+FUNCTIONS:
+  - run_hybrid_query
+
+================================================================================
+FILE: services\search_service.py
+LINES: 37
+
+IMPORTS:
+  - app.utils.rag_utils.run_rag_pipeline
+  - typing.Dict
+  - typing.Optional
+
+FUNCTIONS:
+  - semantic_search_with_context
+
+================================================================================
+FILE: test_db.py
+LINES: 10
+
+IMPORTS:
+  - utils.db_utils.get_db_connection
+
+FUNCTIONS:
+  - test_connection
+
+================================================================================
+FILE: test_embeddings.py
+LINES: 15
+
+IMPORTS:
+  - utils.embedding_utils.EmbeddingService
+
+================================================================================
+FILE: test_llm_only.py
+LINES: 24
+
+IMPORTS:
+  - utils.ollama_utils.generate_answer_from_context
+
+FUNCTIONS:
+  - ask
+
+================================================================================
+FILE: test_qdrant.py
+LINES: 11
+
+IMPORTS:
+  - utils.qdrant_utils.get_qdrant_client
+
+FUNCTIONS:
+  - test_qdrant
+
+================================================================================
+FILE: test_search_vectors.py
+LINES: 22
+
+IMPORTS:
+  - utils.embedding_utils.embed_query
+  - utils.qdrant_utils.search_vectors
+
+================================================================================
+FILE: utils\db_utils.py
+LINES: 30
+
+IMPORTS:
+  - app.core.db_config.DB_CONFIG
+  - psycopg
+
+FUNCTIONS:
+  - get_db_connection
+  - insert_document_metadata
+
+================================================================================
+FILE: utils\edue_answer_refiner.py
+LINES: 101
+
+IMPORTS:
+  - re
+  - typing.Dict
+  - typing.List
+  - typing.Tuple
+
+FUNCTIONS:
+  - refine_edue_answer
+  - score_sentence
+  - split_into_sentences
+  - tokenize
+
+================================================================================
+FILE: utils\edue_rag_bridge.py
+LINES: 29
+
+FUNCTIONS:
+  - build_edue_context
+
+================================================================================
+FILE: utils\embedding_utils.py
+LINES: 36
+
+IMPORTS:
+  - sentence_transformers.SentenceTransformer
+  - typing.List
+
+CLASSES:
+  - EmbeddingService
+
+FUNCTIONS:
+  - __init__
+  - embed_query
+  - embed_texts
+
+================================================================================
+FILE: utils\file_utils.py
+LINES: 18
+
+IMPORTS:
+  - os
+
+FUNCTIONS:
+  - save_temp_file
+
+================================================================================
+FILE: utils\ollama_client.py
+LINES: 30
+
+IMPORTS:
+  - json
+  - requests
+
+FUNCTIONS:
+  - generate_answer
+
+================================================================================
+FILE: utils\ollama_utils.py
+LINES: 84
+
+IMPORTS:
+  - requests
+  - typing.Optional
+
+FUNCTIONS:
+  - generate_answer
+  - generate_answer_from_context
+
+================================================================================
+FILE: utils\pdf_parser.py
+LINES: 176
+
+IMPORTS:
+  - pdfplumber
+  - re
+  - typing.Dict
+  - typing.List
+
+FUNCTIONS:
+  - auto_extract_pdf
+  - extract_courses_from_pdf
+  - extract_structured_sections_from_pdf
+  - normalize_course_code
+
+================================================================================
+FILE: utils\qdrant_utils.py
+LINES: 73
+
+IMPORTS:
+  - qdrant_client.QdrantClient
+  - qdrant_client.models.FieldCondition
+  - qdrant_client.models.Filter
+  - qdrant_client.models.MatchValue
+  - typing.Any
+  - typing.Dict
+  - typing.List
+  - typing.Optional
+
+FUNCTIONS:
+  - get_qdrant_client
+  - search_vectors
+
+================================================================================
+FILE: utils\rag_utils.py
+LINES: 25
+
+IMPORTS:
+  - app.utils.ollama_client.generate_answer
+  - typing.List
+
+FUNCTIONS:
+  - generate_answer_from_context
+
+================================================================================
+FILE: utils\text_chunker.py
+LINES: 16
+
+FUNCTIONS:
+  - chunk_text
+

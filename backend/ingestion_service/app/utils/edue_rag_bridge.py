@@ -1,48 +1,28 @@
-from typing import Dict
-from app.utils.rag_utils import generate_answer_from_context
+# app/utils/edue_rag_bridge.py
 
-
-MAX_CONTEXT_CHARS = 3500
-
-
-def rag_from_edue_context(
-    question: str,
-    edue_answer: str,
-    pages_text: Dict[int, str]
-) -> Dict:
+def build_edue_context(edue_result: dict) -> str:
     """
-    Run RAG ONLY on EDUE-confirmed context.
-    pages_text: {page_number: extracted_text}
+    Converts EDUE output into a compact, RAG-safe context block.
     """
 
-    # Build context deterministically
-    context_blocks = []
+    if not edue_result:
+        return ""
 
-    for page, text in pages_text.items():
-        if text.strip():
-            context_blocks.append(f"[Page {page}]\n{text.strip()}")
+    result = edue_result.get("result", {})
+    answer = result.get("answer", "")
+    pages = result.get("pages", [])
 
-    context = "\n\n".join(context_blocks)[:MAX_CONTEXT_CHARS]
+    if not answer or answer.strip().lower() == "information is not available":
+        return ""
 
-    if not context.strip():
-        return {
-            "query": question,
-            "answer": "Information is not available.",
-            "confidence": "low",
-            "sources": []
-        }
+    page_info = ""
+    if pages:
+        page_info = f"(Source pages: {', '.join(map(str, pages))})"
 
-    answer = generate_answer_from_context(
-        query=question,
-        context=context,
-        cautious=False  # EDUE already validated relevance
-    )
+    context = f"""
+DOCUMENT EXTRACT (EDUE):
+{answer}
+{page_info}
+""".strip()
 
-    return {
-        "query": question,
-        "answer": answer,
-        "confidence": "high",
-        "sources": [
-            {"page": p} for p in pages_text.keys()
-        ]
-    }
+    return context
